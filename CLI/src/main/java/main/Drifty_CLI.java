@@ -700,7 +700,7 @@ public class Drifty_CLI {
                 try {
                     index = Integer.parseInt(indexStr);
                     if (index < 0 || index > urls.size()) {
-                        if (index == 1){
+                        if (index == 1) {
                             messageBroker.msgLinkError("There's only one URL in the list!\n Would you like to remove it? (Y/N): ");
                             String choiceString = SC.nextLine().toLowerCase();
                             boolean choice = utility.yesNoValidation(choiceString, "There's only one URL in the list!\n Would you like to remove it? (Y/N): ");
