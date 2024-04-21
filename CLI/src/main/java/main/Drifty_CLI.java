@@ -100,17 +100,21 @@ public class Drifty_CLI {
                     case ADD_FLAG -> {
                         if (i + 1 >= args.length) {
                             messageBroker.msgBatchError("No URL provided.");
-                            System.exit(1);
+                            Environment.terminate(1);
                         }
                         for (int j = i + 1; j < args.length; j++) {
                             addUrlToFile(args[j]);
                         }
+                        Environment.terminate(0);
                     }
-                    case LIST_FLAG -> listUrls();
+                    case LIST_FLAG -> {
+                        listUrls();
+                        Environment.terminate(0);
+                    }
                     case REMOVE_FLAG -> {
                         if (i + 1 >= args.length) {
                             messageBroker.msgBatchError("No line number provided for removal.");
-                            System.exit(1);
+                            Environment.terminate(1);
                         }
 
                         if ("all".equalsIgnoreCase(args[i + 1])) {
@@ -119,6 +123,13 @@ public class Drifty_CLI {
                             String[] indexStr = Arrays.copyOfRange(args, i + 1, args.length);
                             removeUrl(indexStr);
                         }
+                        Environment.terminate(0);
+                    }
+                    case GET_FLAG -> {
+                        batchDownloadingFile = yamlFilePath;
+                        batchDownloader();
+                        removeAllUrls();
+                        Environment.terminate(0);
                     }
                     case BATCH_FLAG, BATCH_FLAG_SHORT -> {
                         batchDownloading = true;
@@ -580,49 +591,6 @@ public class Drifty_CLI {
         }
     }
 
-    private static String normalizeUrl(String urlString) {
-        try {
-            URI uri = new URI(urlString.trim());
-
-            String scheme = uri.getScheme();
-            String authority = uri.getAuthority();
-            String path = uri.getPath();
-            String query = uri.getQuery();
-            String fragment = uri.getFragment();
-
-            // Normalize the scheme to lowercase
-            if (scheme != null) {
-                scheme = scheme.toLowerCase();
-            }
-
-            // Remove default ports
-            if (authority != null) {
-                authority = authority.replaceAll(":80$", "").replaceAll(":443$", "");
-            }
-
-            // Decode path
-            if (path != null) {
-                path = path.replaceAll("%2F", "/");
-            }
-
-            // Remove fragment
-            fragment = null;
-
-            // Reconstruct the URI without the unwanted components
-            URI normalizedUri = new URI(scheme, authority, path, query, fragment);
-
-            // Remove trailing slash from path, except for root '/'
-            String normalizedUrl = normalizedUri.toString();
-            if (!"/".equals(path) && normalizedUrl.endsWith("/")) {
-                normalizedUrl = normalizedUrl.substring(0, normalizedUrl.length() - 1);
-            }
-
-            return normalizedUrl;
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException("Invalid URL: " + urlString, e);
-        }
-    }
-
     private static void ensureYamlFileExists() {
         // Check if the YAML file exists, create it if it does not
         File yamlFile = new File(yamlFilePath);
@@ -732,6 +700,15 @@ public class Drifty_CLI {
                 try {
                     index = Integer.parseInt(indexStr);
                     if (index < 0 || index > urls.size()) {
+                        if (index == 1){
+                            messageBroker.msgLinkError("There's only one URL in the list!\n Would you like to remove it? (Y/N): ");
+                            String choiceString = SC.nextLine().toLowerCase();
+                            boolean choice = utility.yesNoValidation(choiceString, "There's only one URL in the list!\n Would you like to remove it? (Y/N): ");
+                            if (!choice) {
+                                messageBroker.msgInputInfo(ENTER_FILE_NAME_WITH_EXTENSION, false);
+                                fileName = SC.nextLine();
+                            }
+                        }
                         messageBroker.msgInputError("Invalid line number '" + index + "'. Please provide a number between 1 and " + urls.size() + ".", true);
                         return;
                     }
@@ -784,7 +761,6 @@ public class Drifty_CLI {
 
         try {
             Map<String, List<String>> data = loadYamlData();
-            urlString = normalizeUrl(urlString);
             List<String> urls = data.get("links");
             if (!urls.contains(urlString)) {
                 urls.add(urlString); // Add the URL if it doesn't exist
